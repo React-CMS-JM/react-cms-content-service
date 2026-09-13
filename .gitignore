@@ -38,6 +38,23 @@ nb-configuration.xml
 
 # Local environment
 .env
+*.env
+.env.*
+!.env.example
+
+# Secrets / keys - never commit
+*.jwk
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+src/main/resources/jwt-secret.jwk
+
+# Logs & Quarkus cache
+*.log
+.quarkus/
 
 # Plugin directory
 /.quarkus/cli/plugins/
