@@ -1,5 +1,4 @@
 *
-!target/*-runner
-!target/*-runner.jar
-!target/lib/*
-!target/quarkus-app/*
+!target/quarkus-app/
+!target/quarkus-app/**
+!src/main/docker/docker-entrypoint.sh
