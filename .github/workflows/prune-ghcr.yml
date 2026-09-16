@@ -1,0 +1,39 @@
+name: Prune GHCR Keep Latest Only
+
+# Keep only the newest container version per package (this repo's image).
+# Runs after a successful GHCR publish and once daily as a safety net.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_run:
+    workflows: ["Build and Push GHCR Image"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prune-keep-latest-only:
+    name: Delete older GHCR versions (keep latest)
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune all but the newest tagged version
+        uses: snok/container-retention-policy@v3.1.0
+        with:
+          account: React-CMS-JM
+          # GITHUB_TOKEN works when this repo has Admin on the package
+          # (granted automatically when the build workflow publishes the image).
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Exact name required when using GITHUB_TOKEN (no wildcards).
+          image-names: react-cms-content-service
+          tag-selection: both
+          # Consider nearly all versions; keep-n-most-recent retains only the newest tagged one.
+          cut-off: 1s
+          keep-n-most-recent: 1
+          dry-run: false
