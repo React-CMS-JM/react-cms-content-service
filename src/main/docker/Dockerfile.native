@@ -24,9 +24,7 @@ LABEL org.opencontainers.image.source=$GIT_REPO \
       org.opencontainers.image.description="React CMS content microservice (Quarkus Native)"
 
 WORKDIR /work/
-RUN microdnf install -y --nodocs coreutils \
-    && microdnf clean all \
-    && chown 1001 /work \
+RUN chown 1001 /work \
     && chmod "g+rwX" /work \
     && chown 1001:root /work
 
