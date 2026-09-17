@@ -30,8 +30,9 @@ jobs:
           PROJECT_ID="${{ vars.GCP_PROJECT_ID }}"
           REGION="${{ vars.GCP_REGION }}"
           AR_REPO="${{ vars.AR_REPOSITORY }}"
-          if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ] || [ -z "$AR_REPO" ]; then
-            echo "Set repository Variables: GCP_PROJECT_ID, GCP_REGION, AR_REPOSITORY" >&2
+          RUN_SA="${{ vars.GCP_CLOUD_RUN_SERVICE_ACCOUNT }}"
+          if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ] || [ -z "$AR_REPO" ] || [ -z "$RUN_SA" ]; then
+            echo "Set repository Variables: GCP_PROJECT_ID, GCP_REGION, AR_REPOSITORY, GCP_CLOUD_RUN_SERVICE_ACCOUNT" >&2
             exit 1
           fi
           IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${{ env.IMAGE_NAME }}"
@@ -39,6 +40,7 @@ jobs:
           echo "region=${REGION}" >> "$GITHUB_OUTPUT"
           echo "ar_repo=${AR_REPO}" >> "$GITHUB_OUTPUT"
           echo "image_uri=${IMAGE_URI}" >> "$GITHUB_OUTPUT"
+          echo "run_sa=${RUN_SA}" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -102,5 +104,6 @@ jobs:
             --min-instances=0
             --max-instances=3
             --timeout=300
+            --service-account=${{ steps.gcp.outputs.run_sa }}
             --startup-probe=httpGet.path=${{ env.HEALTH_PATH }},httpGet.port=8080,initialDelaySeconds=5,periodSeconds=10,failureThreshold=12,timeoutSeconds=3
             --liveness-probe=httpGet.path=${{ env.HEALTH_PATH }},httpGet.port=8080,periodSeconds=30,timeoutSeconds=3
