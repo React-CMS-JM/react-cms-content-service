@@ -1,4 +1,5 @@
 *
 !target/quarkus-app/
 !target/quarkus-app/**
+!target/*-runner
 !src/main/docker/docker-entrypoint.sh

@@ -2,6 +2,7 @@
 # Materialize an HS256 JWK for SmallRye JWT verification from JWT_SECRET when
 # JWT_JWK_PATH does not already point at an existing file.
 # Auth signs with JWT_SECRET; content/courses must use the same secret (or JWK).
+# Supports both Quarkus Native (/work/application) and JVM (run-java.sh) images.
 set -eu
 
 JWK_FILE="${JWT_JWK_FILE:-/tmp/jwt-secret.jwk}"
@@ -32,4 +33,12 @@ else
   exit 1
 fi
 
-exec /opt/jboss/container/java/run/run-java.sh "$@"
+if [ -x /work/application ]; then
+  exec /work/application -Dquarkus.http.host=0.0.0.0 "$@"
+fi
+if [ -x /opt/jboss/container/java/run/run-java.sh ]; then
+  exec /opt/jboss/container/java/run/run-java.sh "$@"
+fi
+
+echo "docker-entrypoint: ERROR — no Quarkus runtime found (expected /work/application or run-java.sh)." >&2
+exit 1

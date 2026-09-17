@@ -1,7 +1,8 @@
 name: Build Push Deploy Cloud Run
 
-# Build Quarkus JVM image → Artifact Registry → deploy Cloud Run service.
+# Build Quarkus Native image → Artifact Registry → deploy Cloud Run service.
 # Requires repo Variables + Secrets (see CLOUDRUN-001-manual-finish.md).
+# JVM snapshot preserved on branch dev-quarkus-jvm-cr.
 on:
   push:
     branches: [main]
@@ -18,8 +19,9 @@ env:
 
 jobs:
   build-push-deploy:
-    name: Build image and deploy to Cloud Run
+    name: Build Native image and deploy to Cloud Run
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -49,10 +51,12 @@ jobs:
           java-version: "17"
           cache: maven
 
-      - name: Package Quarkus application
+      - name: Build Quarkus Native executable (Mandrel container)
         run: |
           chmod +x ./mvnw
-          ./mvnw -B -DskipTests package
+          ./mvnw -B -DskipTests -DskipITs package -Dnative \
+            -Dquarkus.native.container-build=true \
+            -Dquarkus.native.native-image-xmx=5g
 
       - name: Authenticate to Google Cloud (WIF)
         id: auth
@@ -76,11 +80,11 @@ jobs:
             type=sha,format=long,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push container image
+      - name: Build and push Native container image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: src/main/docker/Dockerfile.jvm
+          file: src/main/docker/Dockerfile.native
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -98,12 +102,12 @@ jobs:
           flags: >-
             --allow-unauthenticated
             --port=8080
-            --memory=512Mi
+            --memory=256Mi
             --cpu=1
             --cpu-boost
             --min-instances=0
             --max-instances=3
             --timeout=300
             --service-account=${{ steps.gcp.outputs.run_sa }}
-            --startup-probe=httpGet.path=${{ env.HEALTH_PATH }},httpGet.port=8080,initialDelaySeconds=5,periodSeconds=10,failureThreshold=12,timeoutSeconds=3
+            --startup-probe=httpGet.path=${{ env.HEALTH_PATH }},httpGet.port=8080,initialDelaySeconds=0,periodSeconds=1,failureThreshold=60,timeoutSeconds=2
             --liveness-probe=httpGet.path=${{ env.HEALTH_PATH }},httpGet.port=8080,periodSeconds=30,timeoutSeconds=3
