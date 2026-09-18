@@ -20,9 +20,12 @@ import jakarta.transaction.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -88,8 +91,9 @@ public class PostService {
                 .getResultList();
 
         List<LocalizedPostDto> items = posts.stream()
-                .map(p -> toLocalized(p, language))
+                .map(p -> toLocalized(p, language, false))
                 .collect(Collectors.toList());
+        attachMetadata(items);
         return new PageResult<>(items, safePage, safeSize, total);
     }
 
@@ -334,6 +338,10 @@ public class PostService {
     }
 
     private LocalizedPostDto toLocalized(PostEntity post, String lang) {
+        return toLocalized(post, lang, true);
+    }
+
+    private LocalizedPostDto toLocalized(PostEntity post, String lang, boolean includeMetadata) {
         PostI18nEntity i18n = PostI18nEntity.find("postId = ?1 AND languageCode = ?2", post.id, lang).firstResult();
         if (i18n == null) {
             i18n = PostI18nEntity.find("postId", post.id).firstResult();
@@ -372,7 +380,27 @@ public class PostService {
             dto.metaTitle = "";
             dto.metaDescription = "";
         }
+        if (includeMetadata) {
+            dto.metadata = PostMetadataEntity.<PostMetadataEntity>list("postId", post.id).stream()
+                    .map(this::toMetadataDto)
+                    .collect(Collectors.toList());
+        }
         return dto;
+    }
+
+    private void attachMetadata(List<LocalizedPostDto> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        List<String> postIds = items.stream().map(item -> item.id).collect(Collectors.toList());
+        List<PostMetadataEntity> rows = PostMetadataEntity.list("postId in ?1", postIds);
+        Map<String, List<PostMetadataDto>> byPostId = new HashMap<>();
+        for (PostMetadataEntity row : rows) {
+            byPostId.computeIfAbsent(row.postId, ignored -> new ArrayList<>()).add(toMetadataDto(row));
+        }
+        for (LocalizedPostDto item : items) {
+            item.metadata = byPostId.getOrDefault(item.id, Collections.emptyList());
+        }
     }
 
     private PostMetadataDto toMetadataDto(PostMetadataEntity entity) {

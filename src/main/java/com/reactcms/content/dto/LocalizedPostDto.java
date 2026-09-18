@@ -24,4 +24,5 @@ public class LocalizedPostDto {
     public String excerpt;
     public String metaTitle;
     public String metaDescription;
+    public List<PostMetadataDto> metadata = new ArrayList<>();
 }
