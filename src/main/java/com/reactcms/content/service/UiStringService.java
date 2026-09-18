@@ -18,13 +18,17 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class UiStringService {
 
+    /** Loaded only for staff admin shell; excluded from default public list. */
+    public static final String ADMIN_SIDEBAR_COMPONENT = "AdminSidebar";
+
     public List<UiStringDto> list(String lang, String component) {
         String language = normalizeLang(lang);
         List<ParamUiStringEntity> keys;
         if (component != null && !component.isBlank()) {
             keys = ParamUiStringEntity.list("uiComponent", component.trim());
         } else {
-            keys = ParamUiStringEntity.listAll();
+            // Public default: every scope except admin sidebar labels.
+            keys = ParamUiStringEntity.list("uiComponent <> ?1", ADMIN_SIDEBAR_COMPONENT);
         }
 
         List<UiStringDto> result = new ArrayList<>();
