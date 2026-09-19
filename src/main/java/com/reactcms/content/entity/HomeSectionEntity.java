@@ -27,6 +27,10 @@ public class HomeSectionEntity extends PanacheEntityBase {
     @Column(name = "is_visible", nullable = false)
     public Boolean isVisible = true;
 
+    /** Max items shown for this section on the homepage. */
+    @Column(name = "item_limit", nullable = false)
+    public Integer itemLimit = 6;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     public LocalDateTime createdAt;
 

@@ -32,6 +32,8 @@ public class SiteSettingsDto {
     public static class VisibilityOrderItemDto {
         public String id;
         public boolean visible = true;
+        /** Homepage section max items; ignored for main-menu rows. */
+        public Integer itemLimit;
 
         public VisibilityOrderItemDto() {
         }
@@ -39,6 +41,12 @@ public class SiteSettingsDto {
         public VisibilityOrderItemDto(String id, boolean visible) {
             this.id = id;
             this.visible = visible;
+        }
+
+        public VisibilityOrderItemDto(String id, boolean visible, Integer itemLimit) {
+            this.id = id;
+            this.visible = visible;
+            this.itemLimit = itemLimit;
         }
     }
 }

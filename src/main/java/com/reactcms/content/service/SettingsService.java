@@ -124,7 +124,10 @@ public class SettingsService {
         List<HomeSectionEntity> sections = HomeSectionEntity.listAll();
         sections.sort(Comparator.comparing(s -> s.sortOrder == null ? 0 : s.sortOrder));
         return sections.stream()
-                .map(s -> new VisibilityOrderItemDto(s.sectionKey, Boolean.TRUE.equals(s.isVisible)))
+                .map(s -> new VisibilityOrderItemDto(
+                        s.sectionKey,
+                        Boolean.TRUE.equals(s.isVisible),
+                        normalizeItemLimit(s.itemLimit, defaultItemLimit(s.sectionKey))))
                 .collect(Collectors.toList());
     }
 
@@ -144,6 +147,7 @@ public class SettingsService {
             }
             section.isVisible = item.visible;
             section.sortOrder = order++;
+            section.itemLimit = normalizeItemLimit(item.itemLimit, defaultItemLimit(item.id));
         }
         return getHomeSections();
     }
@@ -246,6 +250,24 @@ public class SettingsService {
         } catch (Exception e) {
             return fallback;
         }
+    }
+
+    private static int defaultItemLimit(String sectionKey) {
+        if (sectionKey == null) return 6;
+        return switch (sectionKey.trim().toLowerCase(Locale.ROOT)) {
+            case "services" -> 5;
+            case "products" -> 6;
+            case "blog" -> 9;
+            case "courses" -> 3;
+            default -> 6;
+        };
+    }
+
+    private static int normalizeItemLimit(Integer value, int fallback) {
+        int limit = value == null ? fallback : value;
+        if (limit < 1) return 1;
+        if (limit > 50) return 50;
+        return limit;
     }
 
     private static String normalizeLang(String lang) {
