@@ -10,7 +10,7 @@
 #     --build-arg GIT_SHA=$(git rev-parse HEAD) \
 #     -t us-east1-docker.pkg.dev/PROJECT/react-cms/react-cms-content-service:native .
 #
-# Run (JWT_SECRET required — entrypoint materializes the verify JWK; same secret as auth):
+# Run (JWT_SECRET required — HMAC verify via HmacJwtAuthContextInfoProducer; same secret as auth):
 #   docker run --rm -p 8080:8080 -e PORT=8080 -e JWT_SECRET=... -e DB_HOST=... ...
 ###
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.6

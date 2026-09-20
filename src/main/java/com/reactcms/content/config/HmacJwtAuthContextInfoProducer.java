@@ -19,15 +19,8 @@ import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
 
 /**
- * Supplies HMAC verification key directly on {@link JWTAuthContextInfo}.
- * <p>
- * SmallRye's {@code JWTAuthContextInfoProvider#getContextInfo()} calls
- * {@code getOptionalContextInfo()} on itself, so an Alternative for
- * {@code Optional<JWTAuthContextInfo>} is ignored. We must Alternative the
- * plain {@link JWTAuthContextInfo} bean instead.
- * <p>
- * Also avoids loading oct-JWK via {@code setPublicKeyContent}, which yields
- * {@code Verification key is unresolvable} for HS256 tokens on this service.
+ * Supplies HMAC verification key directly on {@link JWTAuthContextInfo} from
+ * {@code JWT_SECRET}. Avoids SmallRye's oct-JWK {@code key.location} path.
  */
 @ApplicationScoped
 @Alternative
@@ -54,11 +47,10 @@ public class HmacJwtAuthContextInfoProducer {
         contextInfo.setSignatureAlgorithm(Set.of(SignatureAlgorithm.HS256));
         contextInfo.setTokenSchemes(List.of("Bearer"));
         contextInfo.setRequireNamedPrincipal(true);
-        // Keep validation relaxed for HMAC secret keys (jose4j length checks).
         contextInfo.setRelaxVerificationKeyValidation(true);
 
         Log.infof(
-                "HMAC JWTAuthContextInfo active: issuer=%s secretBytes=%d secretVerificationKey=SET relax=true",
+                "HMAC JWTAuthContextInfo active: issuer=%s secretBytes=%d secretVerificationKey=SET",
                 issuer,
                 secretBytes.length);
         return contextInfo;

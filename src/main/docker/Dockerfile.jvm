@@ -7,7 +7,7 @@
 #     --build-arg GIT_SHA=$(git rev-parse HEAD) \
 #     -t us-east1-docker.pkg.dev/PROJECT/react-cms/react-cms-content-service:local .
 #
-# Run (JWT_SECRET required — entrypoint materializes the verify JWK; same secret as auth):
+# Run (JWT_SECRET required — HMAC JWT via JWT_SECRET / HmacJwtAuthContextInfoProducer):
 #   docker run --rm -p 8082:8082 -e PORT=8082 -e JWT_SECRET=... -e DB_HOST=... ...
 ###
 FROM registry.access.redhat.com/ubi9/openjdk-17-runtime:1.24
