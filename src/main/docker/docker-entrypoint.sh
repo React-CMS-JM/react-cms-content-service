@@ -16,7 +16,7 @@ materialize_jwk_from_secret() {
     k=$(printf '%s' "${secret}" | base64 | tr -d '\n')
   fi
   k=$(printf '%s' "${k}" | tr '+/' '-_' | tr -d '=')
-  printf '{"kty":"oct","k":"%s","alg":"HS256"}' "${k}" > "${JWK_FILE}"
+  printf '{"kty":"oct","kid":"react-cms-hs256","k":"%s","alg":"HS256"}' "${k}" > "${JWK_FILE}"
   JWT_JWK_PATH="file:${JWK_FILE}"
   export JWT_JWK_PATH
   echo "docker-entrypoint: materialized HS256 JWK at ${JWK_FILE}"
