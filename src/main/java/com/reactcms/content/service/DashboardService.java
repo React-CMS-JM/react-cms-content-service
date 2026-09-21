@@ -1,5 +1,7 @@
 package com.reactcms.content.service;
 
+import com.reactcms.content.client.AuthUserLookup;
+import com.reactcms.content.client.UserSummaryDto;
 import com.reactcms.content.dto.AdminDashboardDto;
 import com.reactcms.content.dto.AdminRecentActivityDto;
 import com.reactcms.content.entity.CommentEntity;
@@ -7,9 +9,12 @@ import com.reactcms.content.entity.ContentTypeEntity;
 import com.reactcms.content.entity.PostEntity;
 import com.reactcms.content.entity.PostI18nEntity;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class DashboardService {
@@ -19,7 +24,10 @@ public class DashboardService {
     private static final int DEFAULT_RECENT_LIMIT = 6;
     private static final int MAX_RECENT_LIMIT = 20;
 
-    public AdminDashboardDto getDashboard(String lang, Integer recentLimit) {
+    @Inject
+    AuthUserLookup authUserLookup;
+
+    public AdminDashboardDto getDashboard(String lang, Integer recentLimit, String authorizationHeader) {
         String language = normalizeLang(lang);
         int limit = recentLimit == null
                 ? DEFAULT_RECENT_LIMIT
@@ -30,7 +38,7 @@ public class DashboardService {
             dto.counts.put(slug, countByTypeSlug(slug));
         }
         dto.pendingComments = CommentEntity.count("status", "pending");
-        dto.recent = loadRecent(language, limit);
+        dto.recent = loadRecent(language, limit, authorizationHeader);
         return dto;
     }
 
@@ -42,16 +50,25 @@ public class DashboardService {
         return PostEntity.count("contentTypeId", type.id);
     }
 
-    private List<AdminRecentActivityDto> loadRecent(String language, int limit) {
+    private List<AdminRecentActivityDto> loadRecent(String language, int limit, String authorizationHeader) {
         // Include courses (same posts table) so Recent Activity is globally ordered by updatedAt.
         List<PostEntity> posts = PostEntity.find("ORDER BY updatedAt DESC").page(0, limit).list();
-        return posts.stream().map(post -> toRecentRow(post, language)).toList();
+        List<String> authorIds = posts.stream()
+                .map(p -> p.authorId)
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .collect(Collectors.toList());
+        Map<String, UserSummaryDto> authors = authUserLookup.findByIds(authorIds, authorizationHeader);
+
+        return posts.stream().map(post -> toRecentRow(post, language, authors)).toList();
     }
 
-    private AdminRecentActivityDto toRecentRow(PostEntity post, String language) {
+    private AdminRecentActivityDto toRecentRow(
+            PostEntity post, String language, Map<String, UserSummaryDto> authors) {
         AdminRecentActivityDto row = new AdminRecentActivityDto();
         row.id = post.id;
         row.authorId = post.authorId;
+        row.authorName = AuthUserLookup.displayName(authors.get(post.authorId));
         row.status = post.status;
         row.updatedAt = post.updatedAt;
 
