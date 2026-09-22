@@ -16,6 +16,7 @@ import com.reactcms.content.entity.PostI18nEntity;
 import com.reactcms.content.entity.PostMetadataEntity;
 import com.reactcms.content.entity.PostTagEntity;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDateTime;
@@ -35,6 +36,12 @@ public class PostService {
     public static final String COURSE_SLUG = "course";
     public static final Set<String> OWNED_TYPE_SLUGS = Set.of("post", "page", "service", "product");
     private static final String DEFAULT_LANG = "en";
+
+    @Inject
+    CategoryService categoryService;
+
+    @Inject
+    TagService tagService;
 
     public PageResult<LocalizedPostDto> list(String type, String status, String lang, int page, int size) {
         String language = normalizeLang(lang);
@@ -236,11 +243,19 @@ public class PostService {
     @Transactional
     public void delete(String id) {
         PostEntity post = requireOwnedPost(id);
+        Set<Integer> categoryIds = PostCategoryEntity.<PostCategoryEntity>list("postId", post.id).stream()
+                .map(pc -> pc.categoryId)
+                .collect(Collectors.toSet());
+        Set<Integer> tagIds = PostTagEntity.<PostTagEntity>list("postId", post.id).stream()
+                .map(pt -> pt.tagId)
+                .collect(Collectors.toSet());
         PostI18nEntity.delete("postId", post.id);
         PostMetadataEntity.delete("postId", post.id);
         PostCategoryEntity.delete("postId", post.id);
         PostTagEntity.delete("postId", post.id);
         post.delete();
+        categoryService.refreshUsageCounts(categoryIds);
+        tagService.refreshUsageCounts(tagIds);
     }
 
     public List<PostMetadataDto> getMetadata(String postId) {
@@ -308,33 +323,45 @@ public class PostService {
     }
 
     private void replaceCategories(String postId, List<Integer> categoryIds) {
+        Set<Integer> previous = PostCategoryEntity.<PostCategoryEntity>list("postId", postId).stream()
+                .map(pc -> pc.categoryId)
+                .collect(Collectors.toSet());
         PostCategoryEntity.delete("postId", postId);
-        if (categoryIds == null) {
-            return;
+        Set<Integer> next = new HashSet<>();
+        if (categoryIds != null) {
+            for (Integer categoryId : new HashSet<>(categoryIds)) {
+                if (categoryId == null) continue;
+                PostCategoryEntity link = new PostCategoryEntity();
+                link.postId = postId;
+                link.categoryId = categoryId;
+                link.persist();
+                next.add(categoryId);
+            }
         }
-        Set<Integer> unique = new HashSet<>(categoryIds);
-        for (Integer categoryId : unique) {
-            if (categoryId == null) continue;
-            PostCategoryEntity link = new PostCategoryEntity();
-            link.postId = postId;
-            link.categoryId = categoryId;
-            link.persist();
-        }
+        Set<Integer> affected = new HashSet<>(previous);
+        affected.addAll(next);
+        categoryService.refreshUsageCounts(affected);
     }
 
     private void replaceTags(String postId, List<Integer> tagIds) {
+        Set<Integer> previous = PostTagEntity.<PostTagEntity>list("postId", postId).stream()
+                .map(pt -> pt.tagId)
+                .collect(Collectors.toSet());
         PostTagEntity.delete("postId", postId);
-        if (tagIds == null) {
-            return;
+        Set<Integer> next = new HashSet<>();
+        if (tagIds != null) {
+            for (Integer tagId : new HashSet<>(tagIds)) {
+                if (tagId == null) continue;
+                PostTagEntity link = new PostTagEntity();
+                link.postId = postId;
+                link.tagId = tagId;
+                link.persist();
+                next.add(tagId);
+            }
         }
-        Set<Integer> unique = new HashSet<>(tagIds);
-        for (Integer tagId : unique) {
-            if (tagId == null) continue;
-            PostTagEntity link = new PostTagEntity();
-            link.postId = postId;
-            link.tagId = tagId;
-            link.persist();
-        }
+        Set<Integer> affected = new HashSet<>(previous);
+        affected.addAll(next);
+        tagService.refreshUsageCounts(affected);
     }
 
     private LocalizedPostDto toLocalized(PostEntity post, String lang) {
