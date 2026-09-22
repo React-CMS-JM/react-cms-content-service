@@ -6,4 +6,6 @@ public class LocalizedCategoryDto {
     public String languageCode;
     public String name;
     public String slug;
+    /** Number of posts linked via posts_categories. */
+    public long usageCount;
 }

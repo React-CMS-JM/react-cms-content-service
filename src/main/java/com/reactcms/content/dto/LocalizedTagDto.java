@@ -6,4 +6,6 @@ public class LocalizedTagDto {
     public String languageCode;
     public String name;
     public String slug;
+    /** Number of posts linked via posts_tags. */
+    public long usageCount;
 }

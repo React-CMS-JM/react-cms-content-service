@@ -10,8 +10,10 @@ import com.reactcms.content.entity.TagI18nEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -19,8 +21,9 @@ public class TagService {
 
     public List<LocalizedTagDto> list(String lang) {
         String language = normalizeLang(lang);
+        Map<Integer, Long> usageById = loadUsageCounts();
         return TagEntity.<TagEntity>listAll().stream()
-                .map(t -> toLocalized(t, language))
+                .map(t -> toLocalized(t, language, usageById.getOrDefault(t.id, 0L)))
                 .collect(Collectors.toList());
     }
 
@@ -37,7 +40,7 @@ public class TagService {
         i18n.name = req.name;
         i18n.slug = resolveSlug(req);
         i18n.persist();
-        return toLocalized(tag, i18n.languageCode);
+        return toLocalized(tag, i18n.languageCode, 0L);
     }
 
     @Transactional
@@ -66,7 +69,7 @@ public class TagService {
             if (req.slug != null) i18n.slug = req.slug;
             else if (req.name != null) i18n.slug = slugify(req.name);
         }
-        return toLocalized(tag, lang);
+        return toLocalized(tag, lang, PostTagEntity.count("tagId", id));
     }
 
     @Transactional
@@ -80,7 +83,21 @@ public class TagService {
         tag.delete();
     }
 
-    private LocalizedTagDto toLocalized(TagEntity tag, String lang) {
+    private Map<Integer, Long> loadUsageCounts() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = PostTagEntity.getEntityManager()
+                .createQuery("SELECT pt.tagId, COUNT(pt) FROM PostTagEntity pt GROUP BY pt.tagId")
+                .getResultList();
+        Map<Integer, Long> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            if (row[0] != null) {
+                counts.put((Integer) row[0], (Long) row[1]);
+            }
+        }
+        return counts;
+    }
+
+    private LocalizedTagDto toLocalized(TagEntity tag, String lang, long usageCount) {
         TagI18nEntity i18n = TagI18nEntity.find("tagId = ?1 AND languageCode = ?2", tag.id, lang).firstResult();
         if (i18n == null) {
             i18n = TagI18nEntity.find("tagId", tag.id).firstResult();
@@ -88,6 +105,7 @@ public class TagService {
         LocalizedTagDto dto = new LocalizedTagDto();
         dto.id = tag.id;
         dto.dbDescription = tag.dbDescription;
+        dto.usageCount = usageCount;
         if (i18n != null) {
             dto.languageCode = i18n.languageCode;
             dto.name = i18n.name;

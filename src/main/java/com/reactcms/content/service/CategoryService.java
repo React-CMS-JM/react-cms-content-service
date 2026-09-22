@@ -10,8 +10,10 @@ import com.reactcms.content.entity.PostCategoryEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
@@ -19,8 +21,9 @@ public class CategoryService {
 
     public List<LocalizedCategoryDto> list(String lang) {
         String language = normalizeLang(lang);
+        Map<Integer, Long> usageById = loadUsageCounts();
         return CategoryEntity.<CategoryEntity>listAll().stream()
-                .map(c -> toLocalized(c, language))
+                .map(c -> toLocalized(c, language, usageById.getOrDefault(c.id, 0L)))
                 .collect(Collectors.toList());
     }
 
@@ -37,7 +40,7 @@ public class CategoryService {
         i18n.name = req.name;
         i18n.slug = resolveSlug(req);
         i18n.persist();
-        return toLocalized(category, i18n.languageCode);
+        return toLocalized(category, i18n.languageCode, 0L);
     }
 
     @Transactional
@@ -67,7 +70,7 @@ public class CategoryService {
             if (req.slug != null) i18n.slug = req.slug;
             else if (req.name != null) i18n.slug = slugify(req.name);
         }
-        return toLocalized(category, lang);
+        return toLocalized(category, lang, PostCategoryEntity.count("categoryId", id));
     }
 
     @Transactional
@@ -81,7 +84,22 @@ public class CategoryService {
         category.delete();
     }
 
-    private LocalizedCategoryDto toLocalized(CategoryEntity category, String lang) {
+    private Map<Integer, Long> loadUsageCounts() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = PostCategoryEntity.getEntityManager()
+                .createQuery(
+                        "SELECT pc.categoryId, COUNT(pc) FROM PostCategoryEntity pc GROUP BY pc.categoryId")
+                .getResultList();
+        Map<Integer, Long> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            if (row[0] != null) {
+                counts.put((Integer) row[0], (Long) row[1]);
+            }
+        }
+        return counts;
+    }
+
+    private LocalizedCategoryDto toLocalized(CategoryEntity category, String lang, long usageCount) {
         CategoryI18nEntity i18n = CategoryI18nEntity
                 .find("categoryId = ?1 AND languageCode = ?2", category.id, lang)
                 .firstResult();
@@ -91,6 +109,7 @@ public class CategoryService {
         LocalizedCategoryDto dto = new LocalizedCategoryDto();
         dto.id = category.id;
         dto.dbDescription = category.dbDescription;
+        dto.usageCount = usageCount;
         if (i18n != null) {
             dto.languageCode = i18n.languageCode;
             dto.name = i18n.name;
