@@ -92,6 +92,16 @@ jobs:
             GIT_REPO=https://github.com/${{ github.repository }}
             GIT_SHA=${{ github.sha }}
 
+      - name: Resolve app env
+        id: app_env
+        run: |
+          AUTH_SERVICE_URL="${{ vars.AUTH_SERVICE_URL }}"
+          if [ -z "$AUTH_SERVICE_URL" ]; then
+            echo "Set repository Variable AUTH_SERVICE_URL to the auth Cloud Run base URL" >&2
+            exit 1
+          fi
+          echo "auth_service_url=${AUTH_SERVICE_URL}" >> "$GITHUB_OUTPUT"
+
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -99,6 +109,8 @@ jobs:
           region: ${{ steps.gcp.outputs.region }}
           project_id: ${{ steps.gcp.outputs.project_id }}
           image: ${{ steps.gcp.outputs.image_uri }}:${{ github.sha }}
+          env_vars: |
+            AUTH_SERVICE_URL=${{ steps.app_env.outputs.auth_service_url }}
           flags: >-
             --allow-unauthenticated
             --port=8080
